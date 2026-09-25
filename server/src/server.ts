@@ -3,6 +3,8 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { createServer } from "http";
 import { Server } from "socket.io";
+import { RoomManager } from "./rooms/roomManager.js";
+import { createRoomRoutes } from "./routes/roomRoute.js";
 
 dotenv.config();
 
@@ -17,10 +19,10 @@ const io = new Server(httpServer, {
   },
 });
 
+const roomManager = new RoomManager();
+
 app.use(cors());
 app.use(express.json());
-
-const PORT = process.env.PORT || 5000;
 
 app.get("/health", (_req, res) => {
   res.json({
@@ -29,6 +31,8 @@ app.get("/health", (_req, res) => {
   });
 });
 
+app.use("/api/rooms", createRoomRoutes(roomManager));
+
 io.on("connection", (socket) => {
   console.log(`Socket connected: ${socket.id}`);
 
@@ -36,6 +40,8 @@ io.on("connection", (socket) => {
     console.log(`Socket disconnected: ${socket.id}`);
   });
 });
+
+const PORT = process.env.PORT || 5000;
 
 httpServer.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
