@@ -27,3 +27,5 @@ export class RoomManager {
     this.rooms.delete(roomId);
   }
 }
+
+export const roomManager = new RoomManager();

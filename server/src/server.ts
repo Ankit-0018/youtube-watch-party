@@ -3,8 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { createServer } from "http";
 import { Server } from "socket.io";
-import { RoomManager } from "./rooms/roomManager.js";
-import { createRoomRoutes } from "./routes/roomRoute.js";
+import roomRoutes from "./routes/roomRoute.js";
 
 dotenv.config();
 
@@ -19,8 +18,6 @@ const io = new Server(httpServer, {
   },
 });
 
-const roomManager = new RoomManager();
-
 app.use(cors());
 app.use(express.json());
 
@@ -31,7 +28,7 @@ app.get("/health", (_req, res) => {
   });
 });
 
-app.use("/api/rooms", createRoomRoutes(roomManager));
+app.use("/api/rooms", roomRoutes);
 
 io.on("connection", (socket) => {
   console.log(`Socket connected: ${socket.id}`);
