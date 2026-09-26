@@ -6,7 +6,10 @@ import { Server } from "socket.io";
 import roomRoutes from "./routes/roomRoute.js";
 import { errorHandler } from "./utils/errorHandler.js";
 import type { WatchPartySocket } from "./types/socket.js";
-import { registerRoomHandlers } from "./socket/roomHandler.js";
+import {
+  handleDisconnect,
+  registerRoomHandlers,
+} from "./socket/roomHandler.js";
 import { roomManager } from "./rooms/roomManager.js";
 
 dotenv.config();
@@ -43,7 +46,7 @@ io.on("connection", (socket) => {
   registerRoomHandlers(io, watchPartySocket, roomManager);
 
   socket.on("disconnect", () => {
-    console.log(`Socket disconnected: ${socket.id}`);
+    handleDisconnect(io, watchPartySocket, roomManager);
   });
 });
 

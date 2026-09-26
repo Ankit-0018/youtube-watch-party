@@ -13,6 +13,10 @@ export function registerRoomHandlers(
   socket.on("join_room", (payload: JoinRoomPayload) => {
     handleJoinRoom(io, socket, roomManager, payload);
   });
+
+  socket.on("leave_room", () => {
+    handleLeaveRoom(io, socket, roomManager);
+  });
 }
 
 function handleJoinRoom(
@@ -78,4 +82,97 @@ function handleJoinRoom(
   });
 
   console.log(`${participant.username} joined room ${roomId}`);
+}
+
+function handleLeaveRoom(
+  io: Server,
+  socket: WatchPartySocket,
+  roomManager: RoomManager,
+) {
+  const roomId = socket.roomId;
+  const userId = socket.userId;
+
+  if (!roomId || !userId) {
+    return;
+  }
+
+  const room = roomManager.getRoom(roomId);
+
+  if (!room) {
+    return;
+  }
+
+  const participant = room.getParticipant(userId);
+
+  if (!participant) {
+    return;
+  }
+
+  room.removeParticipant(userId);
+
+  socket.leave(roomId);
+
+  socket.roomId = undefined;
+  socket.userId = undefined;
+
+  io.to(roomId).emit(SERVER_EVENTS.USER_LEFT, {
+    username: participant.username,
+    userId: participant.userId,
+    participants: room.getParticipants(),
+  });
+
+  console.log(`${participant.username} left room ${roomId}`);
+
+  cleanupRoom(roomId, roomManager);
+}
+
+function cleanupRoom(roomId: string, roomManager: RoomManager) {
+  const room = roomManager.getRoom(roomId);
+
+  if (!room) {
+    return;
+  }
+
+  if (room.getParticipants().length === 0) {
+    roomManager.deleteRoom(roomId);
+
+    console.log(`Room ${roomId} deleted because it is empty`);
+  }
+}
+
+export function handleDisconnect(
+  io: Server,
+  socket: WatchPartySocket,
+  roomManager: RoomManager,
+) {
+  const roomId = socket.roomId;
+  const userId = socket.userId;
+
+  if (!roomId || !userId) {
+    return;
+  }
+
+  const room = roomManager.getRoom(roomId);
+
+  if (!room) {
+    return;
+  }
+
+  const participant = room.getParticipant(userId);
+
+  if (!participant) {
+    return;
+  }
+
+  room.removeParticipant(userId);
+
+  io.to(roomId).emit(SERVER_EVENTS.USER_LEFT, {
+    username: participant.username,
+    userId: participant.userId,
+    participants: room.getParticipants(),
+  });
+
+  console.log(`${participant.username} disconnected from ${roomId}`);
+
+  cleanupRoom(roomId, roomManager);
 }

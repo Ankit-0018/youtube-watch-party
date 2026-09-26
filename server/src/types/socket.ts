@@ -7,6 +7,6 @@ export interface JoinRoomPayload {
 }
 
 export interface WatchPartySocket extends Socket {
-  roomId?: string;
-  userId?: string;
+  roomId?: string | undefined;
+  userId?: string | undefined;
 }
