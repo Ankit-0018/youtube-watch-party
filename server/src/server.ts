@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import roomRoutes from "./routes/roomRoute.js";
+import { errorHandler } from "./utils/errorHandler.js";
 
 dotenv.config();
 
@@ -29,6 +30,7 @@ app.get("/health", (_req, res) => {
 });
 
 app.use("/api/rooms", roomRoutes);
+app.use(errorHandler);
 
 io.on("connection", (socket) => {
   console.log(`Socket connected: ${socket.id}`);
