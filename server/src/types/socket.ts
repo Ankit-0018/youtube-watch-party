@@ -14,3 +14,7 @@ export interface WatchPartySocket extends Socket {
 export interface PlaybackActionPayload {
   currentTime?: number;
 }
+
+export interface ChangeVideoPayload {
+  videoId: string;
+}

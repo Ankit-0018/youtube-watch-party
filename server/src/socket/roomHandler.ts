@@ -1,5 +1,6 @@
 import { Server } from "socket.io";
 import type {
+  ChangeVideoPayload,
   JoinRoomPayload,
   PlaybackActionPayload,
   WatchPartySocket,
@@ -28,6 +29,13 @@ export function registerRoomHandlers(
 
   socket.on(CLIENT_EVENTS.PAUSE, (payload: PlaybackActionPayload = {}) => {
     handlePause(io, socket, roomManager, payload);
+  });
+
+  socket.on(CLIENT_EVENTS.SEEK, (payload: PlaybackActionPayload) => {
+    handleSeek(io, socket, roomManager, payload);
+  });
+  socket.on(CLIENT_EVENTS.CHANGE_VIDEO, (payload: ChangeVideoPayload) => {
+    handleChangeVideo(io, socket, roomManager, payload);
   });
 }
 
@@ -285,6 +293,130 @@ function handlePause(
       : room.playback.currentTime;
 
   room.pause(currentTime);
+
+  io.to(roomId).emit(SERVER_EVENTS.SYNC_STATE, room.getState());
+}
+
+function handleSeek(
+  io: Server,
+  socket: WatchPartySocket,
+  roomManager: RoomManager,
+  payload: PlaybackActionPayload,
+) {
+  const roomId = socket.roomId;
+  const userId = socket.userId;
+
+  if (!roomId || !userId) {
+    return;
+  }
+
+  const room = roomManager.getRoom(roomId);
+
+  if (!room) {
+    socket.emit(SERVER_EVENTS.ERROR, {
+      code: "ROOM_NOT_FOUND",
+      message: "Room does not exist",
+    });
+
+    return;
+  }
+
+  const participant = room.getParticipant(userId);
+
+  if (!participant) {
+    socket.emit(SERVER_EVENTS.ERROR, {
+      code: "NOT_IN_ROOM",
+      message: "You are not a participant in this room",
+    });
+
+    return;
+  }
+
+  if (!hasPermission(participant.role, "SEEK")) {
+    socket.emit(SERVER_EVENTS.ERROR, {
+      code: "FORBIDDEN",
+      message: "You do not have permission to seek",
+    });
+
+    return;
+  }
+
+  const currentTime = payload.currentTime;
+
+  if (
+    typeof currentTime !== "number" ||
+    !Number.isFinite(currentTime) ||
+    currentTime < 0
+  ) {
+    socket.emit(SERVER_EVENTS.ERROR, {
+      code: "INVALID_SEEK_TIME",
+      message: "Invalid seek position",
+    });
+
+    return;
+  }
+
+  room.seek(currentTime);
+
+  io.to(roomId).emit(SERVER_EVENTS.SYNC_STATE, room.getState());
+}
+
+function handleChangeVideo(
+  io: Server,
+  socket: WatchPartySocket,
+  roomManager: RoomManager,
+  payload: ChangeVideoPayload,
+) {
+  const roomId = socket.roomId;
+  const userId = socket.userId;
+
+  if (!roomId || !userId) {
+    return;
+  }
+
+  const room = roomManager.getRoom(roomId);
+
+  if (!room) {
+    socket.emit(SERVER_EVENTS.ERROR, {
+      code: "ROOM_NOT_FOUND",
+      message: "Room does not exist",
+    });
+
+    return;
+  }
+
+  const participant = room.getParticipant(userId);
+
+  if (!participant) {
+    socket.emit(SERVER_EVENTS.ERROR, {
+      code: "NOT_IN_ROOM",
+      message: "You are not a participant in this room",
+    });
+
+    return;
+  }
+
+  if (!hasPermission(participant.role, "CHANGE_VIDEO")) {
+    socket.emit(SERVER_EVENTS.ERROR, {
+      code: "FORBIDDEN",
+      message: "You do not have permission to change the video",
+    });
+
+    return;
+  }
+
+  const videoId = payload?.videoId?.trim();
+
+  if (!videoId) {
+    socket.emit(SERVER_EVENTS.ERROR, {
+      code: "INVALID_VIDEO_ID",
+      message: "A valid YouTube video ID is required",
+    });
+
+    return;
+  }
+
+  room.changeVideo(videoId);
 
   io.to(roomId).emit(SERVER_EVENTS.SYNC_STATE, room.getState());
 }

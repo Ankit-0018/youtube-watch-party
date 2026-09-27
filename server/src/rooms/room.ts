@@ -55,7 +55,21 @@ export class Room {
       updatedAt: Date.now(),
     };
   }
-
+  seek(currentTime: number) {
+    this.playback = {
+      ...this.playback,
+      currentTime,
+      updatedAt: Date.now(),
+    };
+  }
+  changeVideo(videoId: string) {
+    this.playback = {
+      videoId,
+      playState: "PAUSED",
+      currentTime: 0,
+      updatedAt: Date.now(),
+    };
+  }
   getState(): RoomState {
     return {
       roomId: this.roomId,

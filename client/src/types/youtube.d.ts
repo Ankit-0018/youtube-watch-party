@@ -27,6 +27,7 @@ declare namespace YT {
 
     loadVideoById(videoId: string, startSeconds?: number): void;
 
+    getDuration(): number;
     getCurrentTime(): number;
     getPlayerState(): number;
     destroy(): void;
