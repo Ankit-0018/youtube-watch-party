@@ -18,3 +18,11 @@ export interface PlaybackActionPayload {
 export interface ChangeVideoPayload {
   videoId: string;
 }
+
+export interface TransferHostPayload {
+  userId: string;
+}
+
+export interface ReactionPayload {
+  emoji: string;
+}

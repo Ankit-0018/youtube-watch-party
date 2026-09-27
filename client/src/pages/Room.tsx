@@ -7,6 +7,13 @@ import { getRoomUser } from "../utils/storage";
 import YouTubePlayer from "../components/YoutubePlayer";
 import { extractYouTubeVideoId } from "../utils/youtube";
 
+interface Reaction {
+  id: string;
+  userId: string;
+  emoji: string;
+  username: string;
+}
+
 function formatTime(seconds: number) {
   if (!Number.isFinite(seconds)) {
     return "00:00";
@@ -40,6 +47,8 @@ export default function Room() {
   const [duration, setDuration] = useState(0);
 
   const [videoUrl, setVideoUrl] = useState("");
+
+  const [reactions, setReactions] = useState<Reaction[]>([]);
 
   const playerRef = useRef<YT.Player | null>(null);
 
@@ -112,7 +121,26 @@ export default function Room() {
     function handleError(error: { code: string; message: string }) {
       console.error("Socket error:", error);
     }
+    function handleReaction(data: {
+      emoji: string;
+      userId: string;
+      username: string;
+    }) {
+      console.log("Reaction from:", data.username, data.userId);
 
+      const reaction: Reaction = {
+        id: crypto.randomUUID(),
+        userId: data.userId,
+        emoji: data.emoji,
+        username: data.username,
+      };
+
+      setReactions((prev) => [...prev, reaction]);
+
+      setTimeout(() => {
+        setReactions((prev) => prev.filter((item) => item.id !== reaction.id));
+      }, 2500);
+    }
     socket.on("sync_state", handleSyncState);
 
     socket.on("user_joined", handleUserJoined);
@@ -120,6 +148,8 @@ export default function Room() {
     socket.on("user_left", handleUserLeft);
 
     socket.on("error", handleError);
+
+    socket.on("reaction", handleReaction);
 
     socket.emit("join_room", {
       roomId,
@@ -129,6 +159,8 @@ export default function Room() {
 
     return () => {
       socket.emit("leave_room");
+
+      socket.off("reaction", handleReaction);
 
       socket.off("sync_state", handleSyncState);
 
@@ -230,7 +262,7 @@ export default function Room() {
         {/* Left */}
         <section className="min-w-0">
           {/* Video */}
-          <div className="overflow-hidden rounded-xl bg-black">
+          <div className="relative overflow-hidden rounded-xl bg-black">
             <YouTubePlayer
               videoId={room.playback.videoId}
               onReady={(player) => {
@@ -245,7 +277,6 @@ export default function Room() {
                 setDuration(videoDuration);
               }}
             />
-
             {/* Timeline */}
             <div className="bg-zinc-900 px-3 py-3">
               <div className="flex items-center gap-3">
@@ -339,7 +370,21 @@ export default function Room() {
               )}
             </div>
           </div>
-
+          <div className="mt-3 flex flex-wrap gap-2">
+            {["❤️", "😂", "😮", "🔥", "👍", "👎"].map((emoji) => (
+              <button
+                key={emoji}
+                className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-lg transition hover:scale-110 hover:bg-zinc-800"
+                onClick={() => {
+                  socket.emit("reaction", {
+                    emoji,
+                  });
+                }}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
           {/* Change video */}
           {canControlPlayback && (
             <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
@@ -389,8 +434,15 @@ export default function Room() {
             </span>
           </div>
 
-          <div className="space-y-2">
-            {room.participants.map((participant) => (
+          {room.participants.map((participant) => {
+            const isCurrentUser = participant.userId === userId;
+
+            const isHost = currentParticipant?.role === "HOST";
+            const participantReactions = reactions.filter(
+              (reaction) => reaction.userId === participant.userId,
+            );
+
+            return (
               <div
                 key={participant.userId}
                 className="flex items-center justify-between rounded-lg bg-zinc-800/60 px-3 py-2"
@@ -400,17 +452,46 @@ export default function Room() {
                     {participant.username.charAt(0).toUpperCase()}
                   </div>
 
-                  <span className="truncate text-sm">
-                    {participant.username}
-                  </span>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="truncate text-sm">
+                      {participant.username}
+                    </span>
+
+                    <div className="flex items-center gap-1">
+                      {participantReactions.map((reaction) => (
+                        <span
+                          key={reaction.id}
+                          className="inline-block animate-bounce text-xl"
+                          title={`${reaction.username} reacted`}
+                        >
+                          {reaction.emoji}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
-                <span className="ml-2 shrink-0 text-[10px] uppercase text-zinc-500">
-                  {participant.role}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] uppercase text-zinc-500">
+                    {participant.role}
+                  </span>
+
+                  {isHost && !isCurrentUser && participant.role !== "HOST" && (
+                    <button
+                      className="rounded-md border border-zinc-700 px-2 py-1 text-[10px] hover:bg-zinc-700"
+                      onClick={() => {
+                        socket.emit("transfer_host", {
+                          userId: participant.userId,
+                        });
+                      }}
+                    >
+                      Make Host
+                    </button>
+                  )}
+                </div>
               </div>
-            ))}
-          </div>
+            );
+          })}
         </aside>
       </div>
     </main>

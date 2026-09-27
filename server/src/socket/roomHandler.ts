@@ -3,6 +3,8 @@ import type {
   ChangeVideoPayload,
   JoinRoomPayload,
   PlaybackActionPayload,
+  ReactionPayload,
+  TransferHostPayload,
   WatchPartySocket,
 } from "../types/socket.js";
 import type { RoomManager } from "../rooms/roomManager.js";
@@ -36,6 +38,14 @@ export function registerRoomHandlers(
   });
   socket.on(CLIENT_EVENTS.CHANGE_VIDEO, (payload: ChangeVideoPayload) => {
     handleChangeVideo(io, socket, roomManager, payload);
+  });
+
+  socket.on(CLIENT_EVENTS.TRANSFER_HOST, (payload: TransferHostPayload) => {
+    handleTransferHost(io, socket, roomManager, payload);
+  });
+
+  socket.on(CLIENT_EVENTS.REACTION, (payload: ReactionPayload) => {
+    handleReaction(io, socket, roomManager, payload);
   });
 }
 
@@ -419,4 +429,96 @@ function handleChangeVideo(
   room.changeVideo(videoId);
 
   io.to(roomId).emit(SERVER_EVENTS.SYNC_STATE, room.getState());
+}
+
+function handleTransferHost(
+  io: Server,
+  socket: WatchPartySocket,
+  roomManager: RoomManager,
+  payload: TransferHostPayload,
+) {
+  const roomId = socket.roomId;
+  const userId = socket.userId;
+
+  if (!roomId || !userId) {
+    return;
+  }
+
+  const room = roomManager.getRoom(roomId);
+
+  if (!room) {
+    socket.emit(SERVER_EVENTS.ERROR, {
+      code: "ROOM_NOT_FOUND",
+      message: "Room does not exist",
+    });
+
+    return;
+  }
+
+  // Only the current host can transfer ownership
+  if (room.hostId !== userId) {
+    socket.emit(SERVER_EVENTS.ERROR, {
+      code: "FORBIDDEN",
+      message: "Only the host can transfer host role",
+    });
+
+    return;
+  }
+
+  const targetParticipant = room.getParticipant(payload.userId);
+
+  if (!targetParticipant) {
+    socket.emit(SERVER_EVENTS.ERROR, {
+      code: "PARTICIPANT_NOT_FOUND",
+      message: "Participant does not exist",
+    });
+
+    return;
+  }
+
+  if (payload.userId === userId) {
+    return;
+  }
+
+  room.transferHost(payload.userId);
+
+  io.to(roomId).emit(SERVER_EVENTS.SYNC_STATE, room.getState());
+}
+
+function handleReaction(
+  io: Server,
+  socket: WatchPartySocket,
+  roomManager: RoomManager,
+  payload: ReactionPayload,
+) {
+  const roomId = socket.roomId;
+  const userId = socket.userId;
+
+  if (!roomId || !userId) {
+    return;
+  }
+
+  const room = roomManager.getRoom(roomId);
+
+  if (!room) {
+    return;
+  }
+
+  const participant = room.getParticipant(userId);
+
+  if (!participant) {
+    return;
+  }
+
+  const allowedReactions = ["❤️", "😂", "😮", "🔥", "👍", "👎"];
+
+  if (!allowedReactions.includes(payload.emoji)) {
+    return;
+  }
+
+  io.to(roomId).emit(SERVER_EVENTS.REACTION, {
+    emoji: payload.emoji,
+    userId,
+    username: participant.username,
+  });
 }

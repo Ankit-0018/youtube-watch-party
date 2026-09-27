@@ -70,6 +70,24 @@ export class Room {
       updatedAt: Date.now(),
     };
   }
+
+  transferHost(userId: string) {
+    const currentHost = this.participants.get(this.hostId);
+
+    const newHost = this.participants.get(userId);
+
+    if (!newHost) {
+      throw new Error("Participant not found");
+    }
+
+    if (currentHost) {
+      currentHost.role = "PARTICIPANT";
+    }
+
+    newHost.role = "HOST";
+
+    this.hostId = userId;
+  }
   getState(): RoomState {
     return {
       roomId: this.roomId,

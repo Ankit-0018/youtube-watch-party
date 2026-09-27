@@ -7,6 +7,9 @@ export const CLIENT_EVENTS = {
   SEEK: "seek",
   CHANGE_VIDEO: "change_video",
 
+  TRANSFER_HOST: "transfer_host",
+  REACTION: "reaction",
+
   ASSIGN_ROLE: "assign_role",
   REMOVE_PARTICIPANT: "remove_participant",
 } as const;
@@ -19,6 +22,8 @@ export const SERVER_EVENTS = {
 
   ROLE_ASSIGNED: "role_assigned",
   PARTICIPANT_REMOVED: "participant_removed",
+
+  REACTION: "reaction",
 
   ERROR: "error",
 } as const;
