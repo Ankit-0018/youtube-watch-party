@@ -13,6 +13,9 @@ declare namespace YT {
           autoplay?: number;
           controls?: number;
           playsinline?: number;
+          disablekb?: number;
+          fs?: number;
+          rel?: number;
         };
         events?: {
           onReady?: (event: YTPlayerEvent) => void;
