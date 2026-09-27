@@ -26,8 +26,12 @@ export default function YouTubePlayer({
       playerRef.current = new YT.Player(containerRef.current, {
         videoId,
         playerVars: {
+          autoplay: 0,
+          controls: 0,
+          disablekb: 1,
+          fs: 0,
           playsinline: 1,
-          controls: 1,
+          rel: 0,
         },
         events: {
           onReady: (event) => {
@@ -69,11 +73,20 @@ export default function YouTubePlayer({
 
   return (
     <div
-      ref={containerRef}
       style={{
+        position: "relative",
         width: "100%",
         aspectRatio: "16 / 9",
       }}
-    />
+    >
+      <div
+        ref={containerRef}
+        style={{
+          width: "100%",
+          height: "100%",
+          pointerEvents: "none",
+        }}
+      />
+    </div>
   );
 }

@@ -17,8 +17,15 @@ export default function Room() {
   const username = roomUser?.username;
 
   const [room, setRoom] = useState<RoomState | null>(null);
-
+  const [playerReady, setPlayerReady] = useState(false);
   const playerRef = useRef<YT.Player | null>(null);
+  const currentParticipant = room?.participants.find(
+    (participant) => participant.userId === userId,
+  );
+
+  const canControlPlayback =
+    currentParticipant?.role === "HOST" ||
+    currentParticipant?.role === "MODERATOR";
 
   useEffect(() => {
     if (!roomId || !userId || !username) {
@@ -29,22 +36,7 @@ export default function Room() {
 
     function handleSyncState(state: RoomState) {
       console.log("Sync state:", state);
-
       setRoom(state);
-
-      const player = playerRef.current;
-
-      if (!player || !state.playback.videoId) {
-        return;
-      }
-
-      player.seekTo(state.playback.currentTime, true);
-
-      if (state.playback.playState === "PLAYING") {
-        player.playVideo();
-      } else {
-        player.pauseVideo();
-      }
     }
 
     function handleUserJoined(data: {
@@ -56,7 +48,9 @@ export default function Room() {
       console.log("User joined:", data);
 
       setRoom((current) => {
-        if (!current) return current;
+        if (!current) {
+          return current;
+        }
 
         return {
           ...current,
@@ -73,7 +67,9 @@ export default function Room() {
       console.log("User left:", data);
 
       setRoom((current) => {
-        if (!current) return current;
+        if (!current) {
+          return current;
+        }
 
         return {
           ...current,
@@ -115,6 +111,28 @@ export default function Room() {
     };
   }, [roomId, userId, username]);
 
+  useEffect(() => {
+    const player = playerRef.current;
+
+    if (!playerReady || !player || !room?.playback.videoId) {
+      return;
+    }
+
+    console.log("Applying playback state:", room.playback);
+
+    player.seekTo(room.playback.currentTime, true);
+
+    if (room.playback.playState === "PLAYING") {
+      player.playVideo();
+    } else {
+      player.pauseVideo();
+    }
+  }, [room, playerReady]);
+
+  // -----------------------------
+  // Render guards
+  // -----------------------------
+
   if (!roomId) {
     return <div>Invalid room</div>;
   }
@@ -133,6 +151,10 @@ export default function Room() {
     return <div>Joining room...</div>;
   }
 
+  // -----------------------------
+  // UI
+  // -----------------------------
+
   return (
     <main>
       <h1>Watch Party</h1>
@@ -145,8 +167,45 @@ export default function Room() {
         videoId={room.playback.videoId}
         onReady={(player) => {
           playerRef.current = player;
+
+          setPlayerReady(true);
         }}
       />
+      {canControlPlayback && (
+        <div>
+          <button
+            onClick={() => {
+              const player = playerRef.current;
+
+              if (!player) {
+                return;
+              }
+
+              socket.emit("play", {
+                currentTime: player.getCurrentTime(),
+              });
+            }}
+          >
+            Play
+          </button>
+
+          <button
+            onClick={() => {
+              const player = playerRef.current;
+
+              if (!player) {
+                return;
+              }
+
+              socket.emit("pause", {
+                currentTime: player.getCurrentTime(),
+              });
+            }}
+          >
+            Pause
+          </button>
+        </div>
+      )}
 
       <h2>Participants</h2>
 
