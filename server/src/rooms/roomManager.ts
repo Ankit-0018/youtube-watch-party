@@ -11,11 +11,13 @@ export class RoomManager {
     const room = new Room(roomId, hostId);
 
     this.rooms.set(roomId, room);
+    console.log("ROOM CREATED:", roomId, "TOTAL ROOMS:", this.rooms.size);
 
     return room;
   }
 
   getRoom(roomId: string) {
+    console.log("ROOM LOOKUP:", roomId, "FOUND:", [...this.rooms.keys()]);
     return this.rooms.get(roomId);
   }
 

@@ -5,7 +5,7 @@ export class Room {
   public participants = new Map<string, Participant>();
 
   public playback: PlaybackState = {
-    videoId: null,
+    videoId: "M7lc1UVf-VE",
     playState: "PAUSED",
     currentTime: 0,
     updatedAt: Date.now(),
@@ -36,6 +36,24 @@ export class Room {
 
   getParticipants() {
     return [...this.participants.values()];
+  }
+
+  play(currentTime: number) {
+    this.playback = {
+      ...this.playback,
+      playState: "PLAYING",
+      currentTime,
+      updatedAt: Date.now(),
+    };
+  }
+
+  pause(currentTime: number) {
+    this.playback = {
+      ...this.playback,
+      playState: "PAUSED",
+      currentTime,
+      updatedAt: Date.now(),
+    };
   }
 
   getState(): RoomState {

@@ -1,9 +1,14 @@
 import { Server } from "socket.io";
-import type { JoinRoomPayload, WatchPartySocket } from "../types/socket.js";
+import type {
+  JoinRoomPayload,
+  PlaybackActionPayload,
+  WatchPartySocket,
+} from "../types/socket.js";
 import type { RoomManager } from "../rooms/roomManager.js";
-import { SERVER_EVENTS } from "../constants/socketEvents.js";
+import { CLIENT_EVENTS, SERVER_EVENTS } from "../constants/socketEvents.js";
 import type { Participant } from "../types/participants.js";
 import { ROLES } from "../constants/roles.js";
+import { hasPermission } from "../types/permission.js";
 
 export function registerRoomHandlers(
   io: Server,
@@ -16,6 +21,13 @@ export function registerRoomHandlers(
 
   socket.on("leave_room", () => {
     handleLeaveRoom(io, socket, roomManager);
+  });
+  socket.on(CLIENT_EVENTS.PLAY, (payload: PlaybackActionPayload = {}) => {
+    handlePlay(io, socket, roomManager, payload);
+  });
+
+  socket.on(CLIENT_EVENTS.PAUSE, (payload: PlaybackActionPayload = {}) => {
+    handlePause(io, socket, roomManager, payload);
   });
 }
 
@@ -125,21 +137,13 @@ function handleLeaveRoom(
 
   cleanupRoom(roomId, roomManager);
 }
-
 function cleanupRoom(roomId: string, roomManager: RoomManager) {
   const room = roomManager.getRoom(roomId);
 
-  if (!room) {
-    return;
-  }
+  if (!room) return;
 
-  if (room.getParticipants().length === 0) {
-    roomManager.deleteRoom(roomId);
-
-    console.log(`Room ${roomId} deleted because it is empty`);
-  }
+  console.log(`Room ${roomId} is empty but remains active`);
 }
-
 export function handleDisconnect(
   io: Server,
   socket: WatchPartySocket,
@@ -175,4 +179,112 @@ export function handleDisconnect(
   console.log(`${participant.username} disconnected from ${roomId}`);
 
   cleanupRoom(roomId, roomManager);
+}
+
+function handlePlay(
+  io: Server,
+  socket: WatchPartySocket,
+  roomManager: RoomManager,
+  payload: PlaybackActionPayload,
+) {
+  const roomId = socket.roomId;
+  const userId = socket.userId;
+
+  if (!roomId || !userId) {
+    return;
+  }
+
+  const room = roomManager.getRoom(roomId);
+
+  if (!room) {
+    socket.emit(SERVER_EVENTS.ERROR, {
+      code: "ROOM_NOT_FOUND",
+      message: "Room does not exist",
+    });
+
+    return;
+  }
+
+  const participant = room.getParticipant(userId);
+
+  if (!participant) {
+    socket.emit(SERVER_EVENTS.ERROR, {
+      code: "NOT_IN_ROOM",
+      message: "You are not a participant in this room",
+    });
+
+    return;
+  }
+
+  if (!hasPermission(participant.role, "PLAY")) {
+    socket.emit(SERVER_EVENTS.ERROR, {
+      code: "FORBIDDEN",
+      message: "You do not have permission to play the video",
+    });
+
+    return;
+  }
+
+  const currentTime =
+    typeof payload.currentTime === "number"
+      ? payload.currentTime
+      : room.playback.currentTime;
+
+  room.play(currentTime);
+
+  io.to(roomId).emit(SERVER_EVENTS.SYNC_STATE, room.getState());
+}
+
+function handlePause(
+  io: Server,
+  socket: WatchPartySocket,
+  roomManager: RoomManager,
+  payload: PlaybackActionPayload,
+) {
+  const roomId = socket.roomId;
+  const userId = socket.userId;
+
+  if (!roomId || !userId) {
+    return;
+  }
+
+  const room = roomManager.getRoom(roomId);
+
+  if (!room) {
+    socket.emit(SERVER_EVENTS.ERROR, {
+      code: "ROOM_NOT_FOUND",
+      message: "Room does not exist",
+    });
+
+    return;
+  }
+
+  const participant = room.getParticipant(userId);
+
+  if (!participant) {
+    socket.emit(SERVER_EVENTS.ERROR, {
+      code: "NOT_IN_ROOM",
+      message: "You are not a participant in this room",
+    });
+
+    return;
+  }
+
+  if (!hasPermission(participant.role, "PAUSE")) {
+    socket.emit(SERVER_EVENTS.ERROR, {
+      code: "FORBIDDEN",
+      message: "You do not have permission to pause the video",
+    });
+
+    return;
+  }
+
+  const currentTime =
+    typeof payload.currentTime === "number"
+      ? payload.currentTime
+      : room.playback.currentTime;
+
+  room.pause(currentTime);
+
+  io.to(roomId).emit(SERVER_EVENTS.SYNC_STATE, room.getState());
 }

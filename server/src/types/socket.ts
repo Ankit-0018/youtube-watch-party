@@ -10,3 +10,7 @@ export interface WatchPartySocket extends Socket {
   roomId?: string | undefined;
   userId?: string | undefined;
 }
+
+export interface PlaybackActionPayload {
+  currentTime?: number;
+}
